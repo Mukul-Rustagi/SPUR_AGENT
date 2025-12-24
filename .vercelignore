@@ -1,9 +1,11 @@
 node_modules
-backend/data
+backend
+backend/**
 *.db
 *.db-journal
 .env
 .env.local
 .env.*.local
 .git
+api
 
