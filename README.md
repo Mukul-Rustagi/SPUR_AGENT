@@ -12,12 +12,14 @@ A full-stack AI-powered customer support chat application built for the Spur Fou
 - **Input Validation**: Prevents empty messages and handles long messages gracefully
 - **Typing Indicators**: Visual feedback when the AI agent is generating a response
 - **Example Questions**: Quick-start prompts to help users get started
+- **Multi-Provider Support**: Switch between OpenAI, Groq, and Google Gemini with simple configuration
 
 ## 🏗️ Architecture
 
 ### Backend (`/backend`)
 
 **Tech Stack:**
+
 - Node.js + TypeScript
 - Express.js for REST API
 - SQLite (better-sqlite3) for database
@@ -26,21 +28,29 @@ A full-stack AI-powered customer support chat application built for the Spur Fou
 - Zod for input validation
 
 **Structure:**
+
 ```
 backend/
 ├── src/
 │   ├── db/              # Database setup and schema
+│   │   ├── database.ts  # Database initialization
+│   │   └── migrate.ts   # Migration script
 │   ├── services/        # Business logic
 │   │   ├── conversationService.ts  # Conversation & message management
-│   │   └── llmService.ts           # OpenAI integration
+│   │   ├── llmService.ts           # Multi-provider LLM integration
+│   │   └── cacheService.ts         # Redis caching (optional)
 │   ├── routes/          # API routes
 │   │   └── chat.ts      # Chat endpoints
 │   ├── middleware/      # Express middleware
 │   │   └── errorHandler.ts
 │   └── index.ts         # Server entry point
+├── data/                # SQLite database storage
+├── package.json
+└── tsconfig.json
 ```
 
 **Key Design Decisions:**
+
 - **Service Layer**: Separated business logic from routes for better testability and maintainability
 - **Database Abstraction**: ConversationService provides a clean interface for data operations
 - **LLM Encapsulation**: LLMService handles all LLM interactions with support for multiple providers (OpenAI, Groq, Gemini), making it easy to swap providers
@@ -50,11 +60,13 @@ backend/
 ### Frontend (`/frontend`)
 
 **Tech Stack:**
+
 - React + TypeScript
 - Vite for build tooling
 - Tailwind CSS for styling
 
 **Structure:**
+
 ```
 frontend/
 ├── src/
@@ -63,9 +75,15 @@ frontend/
 │   ├── App.tsx
 │   ├── main.tsx
 │   └── index.css
+├── public/
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+└── tsconfig.json
 ```
 
 **Key Features:**
+
 - Auto-scrolling to latest messages
 - Loading states and disabled buttons during requests
 - Typing indicators
@@ -75,15 +93,24 @@ frontend/
 
 ## 📋 Prerequisites
 
-- Node.js 18+ and npm
-- LLM API key (choose one):
+- **Node.js**: Version 18 or higher
+- **npm**: Version 9 or higher (comes with Node.js)
+- **LLM API Key**: Choose one of the following:
   - **Groq** (FREE, recommended): [Get free key](https://console.groq.com/keys)
   - **Google Gemini** (FREE): [Get free key](https://aistudio.google.com/app/apikey)
   - **OpenAI** ($5 free credits): [Get key](https://platform.openai.com/api-keys)
+- **Redis** (Optional): For caching support. If not configured, the app will work without caching.
 
-## 🛠️ Setup Instructions
+## 🛠️ Quick Start
 
-### 1. Clone and Install Dependencies
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd Spur_Founding
+```
+
+### 2. Install Dependencies
 
 ```bash
 # Install root dependencies (for concurrently)
@@ -98,18 +125,19 @@ cd ../frontend
 npm install
 ```
 
-### 2. Configure Environment Variables
+### 3. Configure Environment Variables
 
 Create `backend/.env` file:
 
 ```bash
 cd backend
-cp .env.example .env
+touch .env
 ```
 
-Edit `backend/.env` and configure your LLM provider:
+Edit `backend/.env` and add your configuration:
 
 **Option 1: Groq (FREE, Recommended)**
+
 ```env
 LLM_PROVIDER=groq
 GROQ_API_KEY=your_groq_api_key_here
@@ -117,6 +145,7 @@ PORT=3001
 ```
 
 **Option 2: Google Gemini (FREE)**
+
 ```env
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=your_gemini_api_key_here
@@ -124,15 +153,21 @@ PORT=3001
 ```
 
 **Option 3: OpenAI (Paid, $5 free credits)**
+
 ```env
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your_openai_api_key_here
 PORT=3001
 ```
 
-See [FREE_API_OPTIONS.md](./FREE_API_OPTIONS.md) for detailed setup instructions.
+**Optional: Redis Configuration**
 
-### 3. Initialize Database
+```env
+REDIS_URL=redis://localhost:6379
+# Or leave unset to disable caching
+```
+
+### 4. Initialize Database
 
 ```bash
 cd backend
@@ -141,11 +176,12 @@ npm run migrate
 
 This creates the SQLite database and tables in `backend/data/chat.db`.
 
-### 4. Run the Application
+### 5. Run the Application
 
 **Option A: Run both together (recommended)**
 
 From the root directory:
+
 ```bash
 npm run dev
 ```
@@ -153,22 +189,24 @@ npm run dev
 **Option B: Run separately**
 
 Terminal 1 (Backend):
+
 ```bash
 cd backend
 npm run dev
 ```
 
 Terminal 2 (Frontend):
+
 ```bash
 cd frontend
 npm run dev
 ```
 
-### 5. Access the Application
+### 6. Access the Application
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- Health Check: http://localhost:3001/api/health
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
+- **Health Check**: http://localhost:3001/api/health
 
 ## 📡 API Endpoints
 
@@ -177,6 +215,7 @@ npm run dev
 Send a message to the AI agent.
 
 **Request:**
+
 ```json
 {
   "message": "What's your return policy?",
@@ -185,6 +224,7 @@ Send a message to the AI agent.
 ```
 
 **Response:**
+
 ```json
 {
   "reply": "We offer a 30-day return policy...",
@@ -197,6 +237,7 @@ Send a message to the AI agent.
 Retrieve conversation history.
 
 **Response:**
+
 ```json
 {
   "messages": [
@@ -211,6 +252,19 @@ Retrieve conversation history.
 }
 ```
 
+### GET `/api/health`
+
+Health check endpoint.
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+
 ## 🤖 LLM Integration
 
 ### Supported Providers
@@ -218,11 +272,13 @@ Retrieve conversation history.
 The application supports multiple LLM providers:
 
 1. **Groq** (Recommended for testing - FREE)
+
    - Model: `llama-3.1-8b-instant`
    - Free tier: 14,400 requests/day
    - Very fast responses
 
 2. **Google Gemini** (FREE tier available)
+
    - Model: `gemini-pro`
    - Free tier: 60 requests/minute
    - High quality responses
@@ -234,6 +290,7 @@ The application supports multiple LLM providers:
 ### Configuration
 
 Set `LLM_PROVIDER` in `backend/.env` to choose your provider:
+
 - `groq` - Uses Groq API (free)
 - `gemini` - Uses Google Gemini API (free tier)
 - `openai` - Uses OpenAI API (paid)
@@ -247,11 +304,13 @@ Set `LLM_PROVIDER` in `backend/.env` to choose your provider:
 ### Prompt Design
 
 The system prompt includes:
+
 - Role definition (helpful support agent)
 - Store knowledge base (shipping, returns, support hours, etc.)
 - Response guidelines (concise, friendly, professional)
 
 **Domain Knowledge Included:**
+
 - Shipping policy (free over $50, standard/express options)
 - Return/refund policy (30 days, full refunds)
 - Support hours (Mon-Fri, 9 AM - 6 PM EST)
@@ -261,6 +320,7 @@ The system prompt includes:
 ### Error Handling
 
 The LLM service handles:
+
 - Invalid API keys (401)
 - Rate limits (429)
 - Service unavailability (503)
@@ -272,25 +332,29 @@ All errors are caught and returned as user-friendly messages.
 ## 🗄️ Database Schema
 
 **conversations**
-- `id` (TEXT, PRIMARY KEY)
-- `created_at` (INTEGER)
-- `updated_at` (INTEGER)
+
+- `id` (TEXT, PRIMARY KEY) - UUID
+- `created_at` (INTEGER) - Unix timestamp
+- `updated_at` (INTEGER) - Unix timestamp
 
 **messages**
-- `id` (TEXT, PRIMARY KEY)
-- `conversation_id` (TEXT, FOREIGN KEY)
+
+- `id` (TEXT, PRIMARY KEY) - UUID
+- `conversation_id` (TEXT, FOREIGN KEY) - References conversations.id
 - `sender` (TEXT, CHECK: 'user' | 'ai')
-- `text` (TEXT)
-- `timestamp` (INTEGER)
+- `text` (TEXT) - Message content
+- `timestamp` (INTEGER) - Unix timestamp
 
 ## 🧪 Testing the Application
 
 1. **Basic Flow:**
+
    - Open http://localhost:3000
    - Type a message or click an example question
    - Verify AI response appears
 
 2. **Session Persistence:**
+
    - Send a few messages
    - Refresh the page
    - Verify conversation history loads
@@ -303,18 +367,17 @@ All errors are caught and returned as user-friendly messages.
 
 ## 🚢 Deployment
 
-### Backend Deployment (e.g., Render)
+### Backend Deployment (e.g., Render, Railway, Heroku)
 
 1. Set environment variables:
-   - `LLM_PROVIDER` (groq, gemini, or openai)
-   - Provider-specific API key (`GROQ_API_KEY`, `GEMINI_API_KEY`, or `OPENAI_API_KEY`)
-   - `PORT` (optional)
-   - `DATABASE_PATH` (optional)
+
+# LLM Provider Selection
+
 
 2. Build command: `cd backend && npm run build`
 3. Start command: `cd backend && npm start`
 
-### Frontend Deployment (e.g., Vercel/Netlify)
+### Frontend Deployment (e.g., Vercel, Netlify)
 
 1. Update API URL in `frontend/vite.config.ts` proxy or use environment variables
 2. Build command: `cd frontend && npm run build`
@@ -322,54 +385,74 @@ All errors are caught and returned as user-friendly messages.
 
 **Note:** For production, update the API URL in the frontend to point to your deployed backend.
 
-## 📝 Trade-offs & Design Decisions
+## 📝 Project Scripts
 
-### What I Included
+### Root Level
 
-✅ Full-stack TypeScript application
-✅ Beautiful, responsive UI with Tailwind CSS
-✅ Conversation persistence with SQLite
-✅ Robust error handling
-✅ Input validation
-✅ Session management
-✅ Typing indicators
-✅ Example questions for UX
+- `npm run dev` - Run both frontend and backend concurrently
+- `npm run dev:backend` - Run only backend
+- `npm run dev:frontend` - Run only frontend
+- `npm run build` - Build both frontend and backend
+- `npm run build:backend` - Build only backend
+- `npm run build:frontend` - Build only frontend
 
-### What I Didn't Include (Due to Time/Scope)
+### Backend
 
-- **Authentication**: Not required per assignment
-- **Redis Caching**: Optional per assignment, SQLite is sufficient for MVP
-- **Docker**: Not required per assignment
-- **Unit Tests**: Would add in production
-- **Rate Limiting**: Would add in production
-- **Message Pagination**: For very long conversations
-- **File Uploads**: Not in scope
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Compile TypeScript to JavaScript
+- `npm start` - Start production server
+- `npm run migrate` - Initialize database schema
 
-### If I Had More Time...
+### Frontend
 
-1. **Testing**: Add unit tests for services and integration tests for API
-2. **Rate Limiting**: Prevent abuse with per-session/IP rate limits
-3. **Monitoring**: Add logging and error tracking (Sentry, etc.)
-4. **Caching**: Redis for frequently asked questions
-5. **Multi-provider Support**: ✅ Already implemented! Supports OpenAI, Groq, and Gemini
-6. **Streaming Responses**: Stream LLM tokens for better UX
-7. **Message Reactions**: Allow users to rate responses
-8. **Admin Dashboard**: View conversations and analytics
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
 
-## 🐛 Known Limitations
+## 🐛 Troubleshooting
 
-- SQLite database file is local (not suitable for multi-instance deployments without shared storage)
-- No authentication (anyone can access any conversation with sessionId)
-- No rate limiting (could be abused)
-- Max message length is 5000 characters (hard limit)
+### Backend Issues
+
+**Database errors:**
+
+- Ensure `backend/data/` directory exists and is writable
+- Run `npm run migrate` to initialize database
+
+**API key errors:**
+
+- Verify your API key is correct in `backend/.env`
+- Check that `LLM_PROVIDER` matches your API key type
+- For Groq: API key should start with `gsk_`
+- For OpenAI: API key should start with `sk-`
+
+**Port already in use:**
+
+- Change `PORT` in `backend/.env` to a different port
+- Or stop the process using port 3001
+
+### Frontend Issues
+
+**Cannot connect to backend:**
+
+- Ensure backend is running on port 3001
+- Check `vite.config.ts` proxy configuration
+- Verify CORS is enabled in backend
+
+**Build errors:**
+
+- Clear `node_modules` and reinstall: `rm -rf node_modules && npm install`
+- Check Node.js version: `node --version` (should be 18+)
 
 ## 📄 License
 
 This project is built for the Spur Founding Engineer take-home assignment.
 
+## 📚 Additional Documentation
+
+- [REQUIREMENTS.md](./REQUIREMENTS.md) - Detailed project requirements
+- [SETUP_GUIDE_BACKEND.md](./SETUP_GUIDE_BACKEND.md) - Detailed backend setup guide
+- [SETUP_GUIDE_FRONTEND.md](./SETUP_GUIDE_FRONTEND.md) - Detailed frontend setup guide
+
 ---
 
 **Built with ❤️ for Spur**
-
-#   S P U R _ A G E N T  
- 
