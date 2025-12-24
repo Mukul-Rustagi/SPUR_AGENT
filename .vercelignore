@@ -1,0 +1,9 @@
+node_modules
+backend/data
+*.db
+*.db-journal
+.env
+.env.local
+.env.*.local
+.git
+
